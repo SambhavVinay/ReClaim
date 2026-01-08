@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">reclaim</string>
+    <string name="title_activity_main">reclaim</string>
+    <string name="package_name">com.lostfound.app</string>
+    <string name="custom_url_scheme">com.lostfound.app</string>
+    <string name="web_client_id">
+  680513043824-fh4qbj63teuee525chfqk5bpcfhmgm6v.apps.googleusercontent.com
+</string>
+
+</resources>

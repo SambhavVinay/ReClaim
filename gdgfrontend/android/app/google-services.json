@@ -1,0 +1,92 @@
+{
+  "project_info": {
+    "project_number": "680513043824",
+    "project_id": "lostfoundproject-7021e",
+    "storage_bucket": "lostfoundproject-7021e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:680513043824:android:e47cd2b2f46fff28a623b5",
+        "android_client_info": {
+          "package_name": "com.lostfound.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "680513043824-3800a20cetrfnvhbanknlqtpqmd60fis.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lostfound.app",
+            "certificate_hash": "271f232b212021180e561d99bd88eece624de814"
+          }
+        },
+        {
+          "client_id": "680513043824-pn0k8bcrk7v932g7a3hkgqmn8cftf2bv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lostfound.app",
+            "certificate_hash": "7a3e06feb8b46630fc275edaa47b1a1553adad8a"
+          }
+        },
+        {
+          "client_id": "680513043824-fh4qbj63teuee525chfqk5bpcfhmgm6v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb5Nn3XUKFSd3isiRZBEo3H6a9qwI6VOs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "680513043824-fh4qbj63teuee525chfqk5bpcfhmgm6v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:680513043824:android:36b460d4f297a62fa623b5",
+        "android_client_info": {
+          "package_name": "com.newlostfound.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "680513043824-mdieenl10ckjc9p70m5aoag0oq4bbicp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.newlostfound.app",
+            "certificate_hash": "271f232b212021180e561d99bd88eece624de814"
+          }
+        },
+        {
+          "client_id": "680513043824-fh4qbj63teuee525chfqk5bpcfhmgm6v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDb5Nn3XUKFSd3isiRZBEo3H6a9qwI6VOs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "680513043824-fh4qbj63teuee525chfqk5bpcfhmgm6v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
