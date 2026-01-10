@@ -1,10 +1,9 @@
 import os
-import torch
-import torch.nn as nn
-from torchvision import models, transforms
-from PIL import Image
 import io
 from datetime import timedelta
+
+import torch
+from PIL import Image
 
 # FastAPI
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
@@ -15,10 +14,15 @@ from google.cloud import storage
 from google.auth import default
 from google.auth.transport import requests
 
+# CLIP
+from transformers import CLIPProcessor, CLIPModel
 
+
+# =============================
+# FASTAPI APP
+# =============================
 app = FastAPI()
 
-# Enable CORS for Capacitor app
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,76 +30,88 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# GCS Setup
+
+# =============================
+# GCS SETUP
+# =============================
 BUCKET_NAME = "campus-finder-bucket"
+
 gcp_credentials, project_id = default()
 storage_client = storage.Client(credentials=gcp_credentials)
 bucket = storage_client.bucket(BUCKET_NAME)
 
 
-# --- AI MODEL SETUP ---
-class CampusFeatureExtractor(nn.Module):
-    def __init__(self, num_classes):
-        super(CampusFeatureExtractor, self).__init__()
-
-        resnet = models.resnet18(weights=None)
-        num_ftrs = resnet.fc.in_features
-        resnet.fc = nn.Linear(num_ftrs, num_classes)
-
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # Ensure campus_model.pth is in the same directory as main.py
-        resnet.load_state_dict(
-            torch.load("campus_model.pth", map_location=device)
-        )
-
-        self.feature_extractor = nn.Sequential(
-            *list(resnet.children())[:-1]
-        )
-        self.feature_extractor.eval()
-
-    def forward(self, x):
-        with torch.no_grad():
-            x = self.feature_extractor(x)
-            return x.view(x.size(0), -1)
-
-
+# =============================
+# CLIP MODEL SETUP
+# =============================
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = CampusFeatureExtractor(num_classes=4).to(device)
 
-preprocess = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(
-        [0.485, 0.456, 0.406],
-        [0.229, 0.224, 0.225]
-    )
-])
+clip_model = None
+clip_processor = None
+
+import os
+
+def load_clip():
+    global clip_model, clip_processor
+
+    if clip_model is None or clip_processor is None:
+        token = os.getenv("HF_TOKEN")
+
+        clip_model = CLIPModel.from_pretrained(
+            "openai/clip-vit-base-patch32",
+            token=token
+        ).to(device)
+
+        clip_processor = CLIPProcessor.from_pretrained(
+            "openai/clip-vit-base-patch32",
+            token=token
+        )
+
+        clip_model.eval()
 
 
-def get_embedding(image_bytes):
-    image = Image.open(io.BytesIO(image_bytes))
-    image = image.convert("RGB")
-
-    tensor = preprocess(image).unsqueeze(0).to(device)
-    embedding = model(tensor)
-
-    norm = embedding.norm(dim=-1, keepdim=True).clamp(min=1e-6)
-    return embedding / norm
 
 
-# --- PUBLIC API ROUTES ---
+# =============================
+# EMBEDDING FUNCTION
+# =============================
+def get_embedding(image_bytes: bytes) -> torch.Tensor:
+    load_clip()  # 👈 THIS IS THE KEY FIX
+
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    inputs = clip_processor(
+        images=image,
+        return_tensors="pt"
+    ).to(device)
+
+    with torch.no_grad():
+        image_features = clip_model.get_image_features(**inputs)
+
+    image_features = image_features / image_features.norm(
+        dim=-1, keepdim=True
+    ).clamp(min=1e-6)
+
+    return image_features
+
+
+
+# =============================
+# HEALTH CHECK
+# =============================
 @app.get("/")
 async def root():
     return {
         "status": "online",
-        "message": "ResNet-18 Backend Online (Public Mode)"
+        "message": "CLIP Backend Online (Public Mode)"
     }
 
 
+# =============================
+# GET IMAGES IN FOLDER
+# =============================
 @app.get("/get-folder-images")
 async def get_folder_images(folder: str):
-    """Retrieves image URLs for a specific item folder."""
     try:
         prefix = f"{folder}/"
         blobs = storage_client.list_blobs(
@@ -108,6 +124,8 @@ async def get_folder_images(folder: str):
         image_urls = []
         for blob in blobs:
             if blob.name == prefix:
+                continue
+            if blob.name.endswith(".pt"):
                 continue
 
             url = blob.generate_signed_url(
@@ -125,39 +143,48 @@ async def get_folder_images(folder: str):
         return {"status": "error", "message": str(e)}
 
 
+# =============================
+# LIST ITEMS WITH THUMBNAILS
+# =============================
 @app.get("/items-list")
 async def list_items_with_thumbnails():
-    """Returns a list of all folders in the bucket with one thumbnail each."""
     try:
         gcp_credentials.refresh(requests.Request())
         blobs = list(storage_client.list_blobs(BUCKET_NAME))
 
         item_map = {}
         for blob in blobs:
-            if '/' in blob.name and not blob.name.endswith(".pt"):
-                folder_name = blob.name.split('/')[0]
+            if "/" not in blob.name:
+                continue
+            if blob.name.endswith(".pt"):
+                continue
 
-                if folder_name not in item_map:
-                    url = blob.generate_signed_url(
-                        version="v4",
-                        expiration=timedelta(hours=1),
-                        service_account_email=gcp_credentials.service_account_email,
-                        access_token=gcp_credentials.token,
-                        method="GET"
-                    )
-                    item_map[folder_name] = url
+            folder_name = blob.name.split("/")[0]
 
-        result = [
-            {"name": name, "thumbnail": url}
-            for name, url in item_map.items()
-        ]
+            if folder_name not in item_map:
+                url = blob.generate_signed_url(
+                    version="v4",
+                    expiration=timedelta(hours=1),
+                    service_account_email=gcp_credentials.service_account_email,
+                    access_token=gcp_credentials.token,
+                    method="GET"
+                )
+                item_map[folder_name] = url
 
-        return {"items": result}
+        return {
+            "items": [
+                {"name": name, "thumbnail": url}
+                for name, url in item_map.items()
+            ]
+        }
 
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
+# =============================
+# REPORT FOUND ITEM
+# =============================
 @app.post("/found")
 async def report_found(
     item_name: str = Form(...),
@@ -167,17 +194,19 @@ async def report_found(
         for file in files:
             content = await file.read()
 
-            # 1️⃣ Upload image
-            img_blob = bucket.blob(f"{item_name}/{file.filename}")
+            # Upload image
+            img_blob = bucket.blob(
+                f"{item_name}/{file.filename}"
+            )
             img_blob.upload_from_string(
                 content,
                 content_type=file.content_type
             )
 
-            # 2️⃣ Generate embedding ONCE
+            # Generate embedding
             embedding = get_embedding(content).cpu()
 
-            # 3️⃣ Save embedding
+            # Save embedding
             buffer = io.BytesIO()
             torch.save(embedding, buffer)
             buffer.seek(0)
@@ -196,6 +225,9 @@ async def report_found(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# =============================
+# SEARCH ITEM
+# =============================
 @app.post("/search")
 async def search_item(file: UploadFile = File(...)):
     try:
@@ -205,11 +237,13 @@ async def search_item(file: UploadFile = File(...)):
         blobs = storage_client.list_blobs(BUCKET_NAME)
 
         item_vectors = {}
+
         for blob in blobs:
             if not blob.name.endswith(".pt"):
                 continue
 
             folder = blob.name.split("/")[0]
+
             buffer = io.BytesIO(blob.download_as_bytes())
             vec = torch.load(buffer, map_location=device)
 
@@ -227,14 +261,13 @@ async def search_item(file: UploadFile = File(...)):
                 dim=0
             )
 
-            norm = master_vec.norm(
-                dim=-1,
-                keepdim=True
+            master_vec = master_vec / master_vec.norm(
+                dim=-1, keepdim=True
             ).clamp(min=1e-6)
-            master_vec = master_vec / norm
 
-            score = torch.sum(query_vec * master_vec).item()
-
+            score = torch.sum(
+                query_vec * master_vec
+            ).item()
 
             if score > best_score:
                 best_score = score
@@ -250,8 +283,15 @@ async def search_item(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# =============================
+# LOCAL RUN (OPTIONAL)
+# =============================
 if __name__ == "__main__":
     import uvicorn
 
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port
+    )
