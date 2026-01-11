@@ -45,7 +45,7 @@ function LostCard({ onClick }: { onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="bg-[#ffa089] rounded-[20px] shadow cursor-pointer hover:scale-105 transition active:scale-95 w-[400px]"
+      className="bg-[#ff3b30] rounded-[20px] shadow cursor-pointer hover:scale-105 transition active:scale-95 w-[400px]"
     >
       <div className="flex flex-col items-center p-6 gap-4">
         <LostPersonIllustration />
@@ -75,7 +75,7 @@ function FoundCard({ onClick }: { onClick: () => void }) {
   return (
     <div
       onClick={onClick}
-      className="bg-[#ade8f4] rounded-[20px] cursor-pointer hover:scale-105 transition active:scale-95 w-[400px]"
+      className="bg-[#007bff] rounded-[20px] cursor-pointer hover:scale-105 transition active:scale-95 w-[400px]"
     >
       <div className="flex flex-col items-center p-6 gap-4">
         <FoundPersonIllustration />
@@ -96,7 +96,7 @@ export default function OptionsPage() {
   /* ✅ SWITCH BACK TO CAMPUS COMPONENT */
 
   return (
-    <div className="bg-[#1E293B] flex flex-col gap-6 items-center justify-center px-5 py-12 min-h-screen">
+    <div className="bg-[#000000] flex flex-col gap-6 items-center justify-center px-5 py-12 min-h-screen">
       <TitleArea />
 
       {/* ✅ ROUTE TO /lost */}
