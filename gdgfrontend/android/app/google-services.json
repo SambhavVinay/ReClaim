@@ -14,19 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "680513043824-3800a20cetrfnvhbanknlqtpqmd60fis.apps.googleusercontent.com",
+          "client_id": "680513043824-52dllqgu1r3dof115pursetecdgj5uku.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.lostfound.app",
-            "certificate_hash": "271f232b212021180e561d99bd88eece624de814"
-          }
-        },
-        {
-          "client_id": "680513043824-pn0k8bcrk7v932g7a3hkgqmn8cftf2bv.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.lostfound.app",
-            "certificate_hash": "7a3e06feb8b46630fc275edaa47b1a1553adad8a"
+            "certificate_hash": "6a1c7528406c615b3aa8de3978cfaa2e84c818ca"
           }
         },
         {

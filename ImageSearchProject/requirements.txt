@@ -7,3 +7,4 @@ pillow
 google-cloud-storage
 google-cloud-vision
 firebase-admin
+transformers
