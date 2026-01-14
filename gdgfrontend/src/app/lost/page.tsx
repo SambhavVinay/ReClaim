@@ -40,12 +40,12 @@ const submitLostItem = async (
 };
 
 export default function Page() {
-  const [openReport, setOpenReport] = useState(false);
+  // const [openReport, setOpenReport] = useState(false); // Removed
   const [openConfirm, setOpenConfirm] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
 
-  const [itemName, setItemName] = useState("");
-  const [description, setDescription] = useState("");
+  // const [itemName, setItemName] = useState(""); // Removed
+  // const [description, setDescription] = useState(""); // Removed
   const [loading, setLoading] = useState(false);
 
   const [cameraActive, setCameraActive] = useState(false);
@@ -170,9 +170,27 @@ export default function Page() {
     }
   };
 
-  // Note: Flash control via getUserMedia is complex (ImageCapture API), omitting for basic implementations
+  // Note: Flash control via getUserMedia - works on Android Chrome/WebView, limited on iOS
   const toggleFlash = async () => {
-    console.log("Flash toggle not implemented for HTML5 video yet");
+    if (!streamRef.current) return;
+    
+    const track = streamRef.current.getVideoTracks()[0];
+    if (!track) return;
+
+    try {
+      // Toggle torch logic using advanced constraints
+      const newFlashState = !flashOn;
+      
+      // Need to cast to any because TS DOM types doesn't fully support 'torch' yet
+      await track.applyConstraints({
+        advanced: [{ torch: newFlashState } as any]
+      });
+      
+      setFlashOn(newFlashState);
+    } catch (err) {
+      console.error("Error toggling flash:", err);
+      // Fallback: If applyConstraints fails, it might mean torch is unsupported
+    }
   };
 
   useEffect(() => {
@@ -186,16 +204,17 @@ export default function Page() {
   /* ---------- AI ---------- */
   const handleFormSubmission = async () => {
     setLoading(true);
-    const data = await submitLostItem(itemName, description, imageBase64);
+    // Pass empty strings since we aren't collecting name/desc anymore
+    const data = await submitLostItem("", "", imageBase64);
     setResult(data);
-    setOpenReport(false);
+    setOpenConfirm(false); 
     setLoading(false);
   };
 
   const closeResult = () => {
     setResult(null);
-    setItemName("");
-    setDescription("");
+    // setItemName("");
+    // setDescription("");
     setImageBase64(null);
     startCamera();
   };
@@ -203,7 +222,7 @@ export default function Page() {
   return (
     <div className="relative min-h-screen w-full bg-black text-white overflow-x-hidden flex flex-col">
       {/* HEADER */}
-      {!openConfirm && !openReport && !result && (
+      {!openConfirm && !result && (
         <div className="w-full pt-10 pb-4 text-center z-20 bg-black sticky top-0">
           <h1 className="text-xl font-semibold tracking-wide">
             Report a Lost Item
@@ -212,7 +231,7 @@ export default function Page() {
       )}
 
       {/* CAMERA SECTION */}
-      {!openConfirm && !openReport && !result && (
+      {!openConfirm && !result && (
         <div className="flex-1 flex flex-col relative w-full">
           {/* CAMERA INSTRUCTIONS */}
           <div className="w-full px-6 mb-4 z-20 relative">
@@ -338,71 +357,13 @@ export default function Page() {
                 </button>
 
                 <button
-                  onClick={() => {
-                    setOpenConfirm(false);
-                    setOpenReport(true);
-                  }}
-                  className="flex-1 py-3 rounded-lg bg-yellow-400 text-black font-semibold"
+                  onClick={handleFormSubmission}
+                  disabled={loading}
+                  className="flex-1 py-3 rounded-lg bg-yellow-400 text-black font-semibold disabled:opacity-70"
                 >
-                  Use Photo
+                  {loading ? "Analyzing..." : "Run AI Analysis"}
                 </button>
               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* REPORT MODAL */}
-      <AnimatePresence>
-        {openReport && (
-          <motion.div
-            className="fixed inset-0 z-[60] flex flex-col bg-zinc-900"
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
-          >
-            <div className="pt-10 px-6 flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-semibold">Item details</h2>
-                  <p className="text-zinc-400 mt-2">
-                    Provide a few details to help us identify your item.
-                  </p>
-                </div>
-                
-                 {/* CLOSE BUTTON FOR REPORT MODAL TOO */}
-                <button 
-                  onClick={() => setOpenReport(false)}
-                  className="p-2 bg-zinc-800 rounded-full"
-                >
-                    <X size={24} className="text-zinc-400" />
-                </button>
-            </div>
-
-            <div className="px-6 mt-6 space-y-6 flex-1 overflow-y-auto">
-              <input
-                value={itemName}
-                onChange={(e) => setItemName(e.target.value)}
-                placeholder="Item name"
-                className="w-full px-4 py-4 rounded-xl bg-black border border-zinc-800 outline-none focus:border-yellow-400"
-              />
-
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Description"
-                rows={6}
-                className="w-full px-4 py-4 rounded-xl bg-black border border-zinc-800 outline-none focus:border-yellow-400 resize-none"
-              />
-            </div>
-
-            <div className="p-6 mt-auto">
-              <button
-                onClick={handleFormSubmission}
-                disabled={loading}
-                className="w-full py-4 rounded-xl bg-yellow-400 text-black font-bold"
-              >
-                {loading ? "Analyzing…" : "Run AI Analysis"}
-              </button>
             </div>
           </motion.div>
         )}
