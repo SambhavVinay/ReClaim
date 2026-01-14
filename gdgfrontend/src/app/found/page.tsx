@@ -56,6 +56,7 @@ export default function FoundPage() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const [itemName, setItemName] = useState("");
   const [itemDescription, setItemDescription] = useState("");
@@ -371,7 +372,7 @@ export default function FoundPage() {
 
                  <button
                     onClick={takePhoto}
-                    className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition-transform"
+                    className="w-20 h-20 rounded-full border-4 border-[#FFD60A] flex items-center justify-center active:scale-95 transition-transform"
                  >
                      <div className="w-16 h-16 rounded-full bg-white"/>
                  </button>
@@ -385,8 +386,6 @@ export default function FoundPage() {
       {/* FORM */}
       {!isCameraOpen && (
         <div className="px-4 pt-8 pb-28 space-y-8">
-          {/* 🔽 YOUR FORM CODE — UNCHANGED */}
-          {/* (left exactly as you had it) */}
           <h1 className="text-2xl font-semibold flex items-center gap-2">
             <Package color={THEME.blue} />
             Report Found Item

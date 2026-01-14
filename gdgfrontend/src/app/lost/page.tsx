@@ -55,6 +55,7 @@ export default function Page() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   /* ---------- CAMERA ---------- */
   const openCamera = async () => {
@@ -81,6 +82,8 @@ export default function Page() {
         audio: false,
       });
 
+      streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
@@ -92,13 +95,21 @@ export default function Page() {
   };
 
   const stopCamera = () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-          videoRef.current.srcObject = null;
-          setCameraActive(false);
+      if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
       }
+      if (videoRef.current) {
+          videoRef.current.srcObject = null;
+      }
+      setCameraActive(false);
   };
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
 
   const capturePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
