@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 
-/* ================= TYPES ================= */
+/* ================= CONFIG ================= */
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
 
+/* ================= TYPES ================= */
 export interface ReportedItem {
   id: string;
   name: string;
@@ -18,13 +19,8 @@ export interface ReportedItem {
   type: "lost" | "found";
 }
 
-interface ApiItem {
-  name?: string;
-  thumbnail?: string;
-}
-
 interface ItemsApiResponse {
-  items?: ApiItem[];
+  items: string[];
 }
 
 /* ================= THEME ================= */
@@ -37,63 +33,63 @@ const THEME = {
   border: "#27272A",
 };
 
-
-
 /* ================= MAIN COMPONENT ================= */
 export default function LostAndFound() {
   const [items, setItems] = useState<ReportedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState("name");
+  const [sortBy, setSortBy] = useState<"name" | "date">("name");
   const [activeItem, setActiveItem] = useState<ReportedItem | null>(null);
 
-  /* -------- FETCH DATA (Backend integration) -------- */
+  /* -------- FETCH DATA -------- */
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+
       try {
-        const res = await fetch(`${BACKEND_URL}/items-list`);
-        if (!res.ok) throw new Error("Failed to fetch");
+        const res = await fetch(`${BACKEND_URL}/items`);
+        if (!res.ok) throw new Error("Failed to fetch items");
 
         const data: ItemsApiResponse = await res.json();
 
-        // Transform API data to match ReportedItem interface
-        const transformed: ReportedItem[] = (data.items ?? []).map(
-          (item, index) => ({
-            id: item.name ?? `item-${index}`,
-            name: item.name ?? "Unknown Item",
-            description: "No description available",
-            foundLocation: "Unknown Location",
-            currentLocation: "RV University",
-            images: [
-              item.thumbnail ??
-                "https://via.placeholder.com/400x300?text=No+Image",
-            ],
-            dateReported: new Date().toISOString(),
-            type: "found",
-          })
-        );
-        
+        const transformed: ReportedItem[] = data.items.map((name) => ({
+          id: name,
+          name,
+          description: "Item reported in lost & found database.",
+          foundLocation: "Unknown Location",
+          currentLocation: "RV University",
+          images: ["https://via.placeholder.com/400x300?text=Item+Image"],
+          dateReported: new Date().toISOString(),
+          type: "found",
+        }));
+
         setItems(transformed);
-      } catch (e) {
-        console.error("Backend fetch failed", e);
-        setItems([]); 
+      } catch (err) {
+        console.error("Fetch failed:", err);
+        setItems([]);
       } finally {
         setLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
+  /* -------- SORT -------- */
   const sortedItems = [...items].sort((a, b) => {
-    if (sortBy === "name") return a.name.localeCompare(b.name);
-    return new Date(b.dateReported).getTime() - new Date(a.dateReported).getTime();
+    if (sortBy === "name") {
+      return a.name.localeCompare(b.name);
+    }
+    return (
+      new Date(b.dateReported).getTime() - new Date(a.dateReported).getTime()
+    );
   });
 
   return (
     <div
-      className="min-h-screen px-4 py-10 relative"
+      className="min-h-screen px-4 py-10"
       style={{ backgroundColor: THEME.bg, color: THEME.textPrimary }}
     >
+      {/* LOADER */}
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -102,7 +98,11 @@ export default function LostAndFound() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm"
           >
-            <Loader2 className="animate-spin mb-4" size={48} style={{ color: THEME.yellow }} />
+            <Loader2
+              className="animate-spin mb-4"
+              size={48}
+              style={{ color: THEME.yellow }}
+            />
             <p className="text-sm font-medium tracking-wide">
               Fetching Database...
             </p>
@@ -112,21 +112,16 @@ export default function LostAndFound() {
 
       <div className="max-w-6xl mx-auto">
         {/* HEADER */}
-        <h1 className="text-3xl font-semibold">
-          Find Reported Items
-        </h1>
-        <p
-          className="mt-1 text-sm"
-          style={{ color: THEME.textSecondary }}
-        >
-          Helping lost belongings find their way back safely 
+        <h1 className="text-3xl font-semibold">Find Reported Items</h1>
+        <p className="mt-1 text-sm" style={{ color: THEME.textSecondary }}>
+          Helping lost belongings find their way back safely
         </p>
 
-        {/* SORT CONTROLS */}
-        <div className="mt-6 flex gap-3">
+        {/* SORT */}
+        <div className="mt-6">
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => setSortBy(e.target.value as "name" | "date")}
             className="rounded-lg px-4 py-2 text-sm outline-none"
             style={{
               backgroundColor: THEME.buttonBg,
@@ -153,17 +148,20 @@ export default function LostAndFound() {
 
       {/* MODAL */}
       {activeItem && (
-        <ItemModal
-          item={activeItem}
-          onClose={() => setActiveItem(null)}
-        />
+        <ItemModal item={activeItem} onClose={() => setActiveItem(null)} />
       )}
     </div>
   );
 }
 
 /* ================= ITEM CARD ================= */
-function ItemCard({ item, onClick }: { item: ReportedItem; onClick: () => void }) {
+function ItemCard({
+  item,
+  onClick,
+}: {
+  item: ReportedItem;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
@@ -177,10 +175,6 @@ function ItemCard({ item, onClick }: { item: ReportedItem; onClick: () => void }
         src={item.images[0]}
         alt={item.name}
         className="h-40 w-full object-cover"
-        onError={(e) => {
-          e.currentTarget.src =
-            "https://via.placeholder.com/400x300?text=No+Image";
-        }}
       />
 
       <div className="p-4">
@@ -209,41 +203,33 @@ function ItemCard({ item, onClick }: { item: ReportedItem; onClick: () => void }
 }
 
 /* ================= MODAL ================= */
-function ItemModal({ item, onClose }: { item: ReportedItem; onClose: () => void }) {
+function ItemModal({
+  item,
+  onClose,
+}: {
+  item: ReportedItem;
+  onClose: () => void;
+}) {
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
       <div className="relative w-full max-w-4xl mx-4">
-        {/* TOP HANDLE / ARROW */}
-        <div className="flex justify-center mb-3">
-          <div className="h-1.5 w-12 rounded-full bg-zinc-600" />
-        </div>
-
-        {/* MODAL CARD */}
         <div
-          className="rounded-2xl overflow-hidden shadow-xl"
+          className="rounded-2xl overflow-hidden"
           style={{ backgroundColor: "#0A0A0A" }}
         >
-          {/* IMAGE GALLERY */}
-          <div className="grid grid-cols-3 gap-1">
-            {item.images.map((img, index) => (
-              <img
-                key={index}
-                src={img}
-                alt=""
-                className="h-44 w-full object-cover"
-              />
-            ))}
-          </div>
+          <img
+            src={item.images[0]}
+            alt={item.name}
+            className="h-64 w-full object-cover"
+          />
 
-          {/* CONTENT */}
           <div className="p-8">
-            {/* HEADER */}
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-white">
                   {item.name}
                 </h2>
-                <span className="mt-2 inline-block text-xs tracking-wide px-3 py-1 rounded-full bg-yellow-400/10 text-yellow-400">
+                <span className="mt-2 inline-block text-xs px-3 py-1 rounded-full bg-yellow-400/10 text-yellow-400">
                   FOUND ITEM
                 </span>
               </div>
@@ -251,26 +237,17 @@ function ItemModal({ item, onClose }: { item: ReportedItem; onClose: () => void 
               <button
                 onClick={onClose}
                 className="text-zinc-400 hover:text-white text-xl"
-                aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
-            {/* DESCRIPTION */}
-            <p className="mt-6 text-sm text-zinc-400 leading-relaxed max-w-2xl">
-              {item.description}
-            </p>
+            <p className="mt-6 text-sm text-zinc-400">{item.description}</p>
 
-            {/* DIVIDER */}
             <div className="my-8 h-px bg-zinc-800" />
 
-            {/* DETAILS GRID */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm">
-              <InfoBlock
-                label="Item Found At"
-                value={item.foundLocation}
-              />
+              <InfoBlock label="Item Found At" value={item.foundLocation} />
               <InfoBlock
                 label="Current Location"
                 value={item.currentLocation}
@@ -288,7 +265,7 @@ function ItemModal({ item, onClose }: { item: ReportedItem; onClose: () => void 
 }
 
 /* ================= INFO BLOCK ================= */
-function InfoBlock({ label, value }: { label: string; value: string | undefined }) {
+function InfoBlock({ label, value }: { label: string; value?: string }) {
   return (
     <div>
       <p className="text-zinc-500 mb-1 font-medium">{label}</p>
