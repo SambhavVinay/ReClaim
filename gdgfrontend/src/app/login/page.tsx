@@ -14,8 +14,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     GoogleAuth.initialize({
-      clientId:
-        "680513043824-fh4qbj63teuee525chfqk5bpcfhmgm6v.apps.googleusercontent.com",
+      clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
       scopes: ["profile", "email"],
       grantOfflineAccess: true,
     });
