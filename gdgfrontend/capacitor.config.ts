@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: "out",
   server: {
     cleartext: false,
-    allowNavigation: ["campus-search-api-680513043824.us-central1.run.app"],
+    allowNavigation: [process.env.NEXT_PUBLIC_BACKEND_URL!],
   },
 };
 
