@@ -249,9 +249,11 @@ export default function FoundPage() {
                   videoRef.current.srcObject as MediaStream
                 ).getVideoTracks()[0];
                 try {
-                  await track.applyConstraints({
-                    advanced: [{ torch: !flashOn } as any],
-                  });
+                  type TorchConstraint = { torch?: boolean };
+                  const constraints: MediaTrackConstraints & { advanced?: TorchConstraint[] } = {
+                    advanced: [{ torch: !flashOn } as TorchConstraint],
+                  };
+                  await track.applyConstraints(constraints);
                   setFlashOn(!flashOn);
                 } catch (e) {
                   console.error(e);

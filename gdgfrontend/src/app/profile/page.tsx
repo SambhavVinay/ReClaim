@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ComponentType, SVGProps } from "react";
 import { auth } from "@/app/lib/firebase";
-import { signOut } from "firebase/auth";
+import { signOut, type User } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   LogOut,
   User as UserIcon,
@@ -25,17 +27,20 @@ export default function ProfileApp() {
   const { theme, setTheme, resolvedTheme } = useTheme();
   const { themeColor, setThemeColor } = useThemeColor();
   const [mounted, setMounted] = useState(false);
-  const [firebaseUser, setFirebaseUser] = useState<any>(auth.currentUser);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(auth.currentUser);
   const [screen, setScreen] = useState("profile");
   const [mobileNumber, setMobileNumber] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
+    const rafId = requestAnimationFrame(() => setMounted(true));
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setFirebaseUser(user);
     });
-    return () => unsubscribe();
+    return () => {
+      cancelAnimationFrame(rafId);
+      unsubscribe();
+    };
   }, []);
 
   if (!mounted) return null; // Avoid hydration mismatch
@@ -156,9 +161,11 @@ export default function ProfileApp() {
                       <div className="flex flex-col items-center mb-6">
                         <div className="relative h-24 w-24 rounded-full border-4 border-btn-bg overflow-hidden bg-btn-bg shadow-xl">
                           {getPhotoUrl() ? (
-                            <img
-                              src={getPhotoUrl()}
+                            <Image
+                              src={getPhotoUrl()!}
                               alt="Profile"
+                              width={96}
+                              height={96}
                               className="h-full w-full object-cover"
                             />
                           ) : (
@@ -299,16 +306,25 @@ export default function ProfileApp() {
 
 // Components
 
-function ProfileHeader({ light, name, email, photoUrl }: any) {
+type ProfileHeaderProps = {
+  light?: boolean;
+  name: string;
+  email: string;
+  photoUrl?: string | null;
+};
+
+function ProfileHeader({ light, name, email, photoUrl }: ProfileHeaderProps) {
   return (
     <div className="flex flex-col items-center text-center">
       <div
         className={`mb-3 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 ${light ? "border-white/20" : "border-border-custom"} ${light ? "bg-white/10" : "bg-card-bg"} shadow-xl`}
       >
         {photoUrl ? (
-          <img
-            src={photoUrl}
+          <Image
+            src={photoUrl!}
             alt="propic"
+            width={80}
+            height={80}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -332,7 +348,14 @@ function ProfileHeader({ light, name, email, photoUrl }: any) {
   );
 }
 
-function MenuCard({ icon: Icon, title, subtitle, onClick }: any) {
+type MenuCardProps = {
+  icon: ComponentType<SVGProps<SVGSVGElement> & { size?: number; className?: string }>;
+  title: string;
+  subtitle?: string;
+  onClick?: () => void;
+};
+
+function MenuCard({ icon: Icon, title, subtitle, onClick }: MenuCardProps) {
   return (
     <div
       onClick={onClick}
@@ -353,7 +376,12 @@ function MenuCard({ icon: Icon, title, subtitle, onClick }: any) {
   );
 }
 
-function SubPageHeader({ title, onBack }: any) {
+type SubPageHeaderProps = {
+  title: string;
+  onBack: () => void;
+};
+
+function SubPageHeader({ title, onBack }: SubPageHeaderProps) {
   return (
     <div className="flex items-center gap-4 py-2">
       <button
@@ -367,6 +395,15 @@ function SubPageHeader({ title, onBack }: any) {
   );
 }
 
+type InfoRowProps = {
+  icon: ComponentType<SVGProps<SVGSVGElement> & { size?: number; className?: string }>;
+  label: string;
+  value?: string;
+  editable?: boolean;
+  onChange?: (val: string) => void;
+  placeholder?: string;
+};
+
 function InfoRow({
   icon: Icon,
   label,
@@ -374,7 +411,7 @@ function InfoRow({
   editable,
   onChange,
   placeholder,
-}: any) {
+}: InfoRowProps) {
   return (
     <div className="flex items-center gap-4 rounded-xl bg-btn-bg p-3">
       <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-background text-secondary-text">
@@ -387,7 +424,7 @@ function InfoRow({
         {editable ? (
           <input
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => onChange?.(e.target.value)}
             placeholder={placeholder}
             className="w-full bg-transparent text-sm font-medium text-foreground placeholder:text-secondary-text outline-none"
           />
@@ -409,7 +446,14 @@ function PrimaryButton({ label }: { label: string }) {
   );
 }
 
-function SwitchCard({ title, subtitle, checked, onToggle }: any) {
+type SwitchCardProps = {
+  title: string;
+  subtitle?: string;
+  checked: boolean;
+  onToggle?: () => void;
+};
+
+function SwitchCard({ title, subtitle, checked, onToggle }: SwitchCardProps) {
   return (
     <div
       className="flex items-center justify-between rounded-2xl border border-border-custom bg-card-bg p-4 cursor-pointer hover:bg-btn-hover transition-colors"
@@ -430,7 +474,12 @@ function SwitchCard({ title, subtitle, checked, onToggle }: any) {
   );
 }
 
-function SettingItem({ label, value }: any) {
+type SettingItemProps = {
+  label: string;
+  value?: React.ReactNode;
+};
+
+function SettingItem({ label, value }: SettingItemProps) {
   return (
     <div className="flex items-center justify-between p-4 rounded-xl hover:bg-btn-hover transition-colors cursor-pointer text-foreground">
       <span className="font-medium">{label}</span>

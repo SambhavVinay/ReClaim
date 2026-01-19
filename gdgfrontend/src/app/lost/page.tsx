@@ -189,9 +189,8 @@ export default function Page() {
     if (!track) return;
     try {
       const newFlashState = !flashOn;
-      await (track as any).applyConstraints({
-        advanced: [{ torch: newFlashState }],
-      });
+      // 'torch' is non-standard; cast via unknown to MediaTrackConstraints to avoid `any`
+      await track.applyConstraints({ advanced: [{ torch: newFlashState }] } as unknown as MediaTrackConstraints);
       setFlashOn(newFlashState);
     } catch (err) {
       console.error("Flash not supported", err);
