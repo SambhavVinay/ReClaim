@@ -8,9 +8,7 @@ export default function OptionsPage() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden px-4 py-12 bg-background transition-colors duration-300">
-
       <div className="relative z-10 w-full max-w-md mx-auto flex flex-col gap-10">
-
         {/* ================= TITLE (LEFT-CENTERED) ================= */}
         <motion.div
           initial={{ opacity: 0, y: -16 }}
@@ -22,7 +20,7 @@ export default function OptionsPage() {
             What brings you here?
           </h1>
 
-         {/* Title Text */}
+          {/* Title Text */}
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -34,7 +32,7 @@ export default function OptionsPage() {
 
           {/* Campus line */}
           <p className="mt-3 text-xs flex items-center gap-2 text-secondary-text">
-            📍 RV University · Main Campus
+            RV University · Main Campus
             <span className="px-2 py-[2px] rounded-full text-[10px] border border-border-custom text-accent-yellow">
               Verified
             </span>

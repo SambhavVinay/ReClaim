@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import AuthGate from "@/app/components/AuthGate";
 
 export default function GetStartedPage() {
   const [showAuthGate, setShowAuthGate] = useState(false);
+  const router = useRouter();
 
   return (
     <div
@@ -69,8 +71,8 @@ export default function GetStartedPage() {
             </p>
           </div>
 
-          {/* CTA BUTTON */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 px-6 pb-[max(env(safe-area-inset-bottom),2rem)]">
+          {/* CTA BUTTONS */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 px-6 pb-[max(env(safe-area-inset-bottom),2rem)] space-y-3">
             <button
               onClick={() => setShowAuthGate(true)}
               className="

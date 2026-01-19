@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, MapPin, Calendar, X } from "lucide-react";
 
@@ -12,11 +11,12 @@ const API = process.env.NEXT_PUBLIC_BACKEND_URL!;
 export interface ReportedItem {
   id: string;
   name: string;
-
-  images: string[];
-  dateReported: string;
+  description: string;
   foundLocation?: string;
   currentLocation?: string;
+  dateReported: string;
+  images: string[];
+  type: "lost" | "found";
 }
 
 interface ItemsResponse {
@@ -27,20 +27,23 @@ interface ImagesResponse {
   images: string[];
 }
 
-type SortMode = "date" | "az";
-
-/* ================= MAIN ================= */
+/* ================= MAIN COMPONENT ================= */
 export default function LostAndFound() {
   const [items, setItems] = useState<ReportedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState("date");
   const [activeItem, setActiveItem] = useState<ReportedItem | null>(null);
-  const [sortMode, setSortMode] = useState<SortMode>("date");
 
+  /* -------- FETCH DATA (Backend integration) -------- */
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
         const res = await fetch(`${API}/items`);
+        // We can't use date from backend if it's not provided, but we can try to extract it from name if possible
+        // For now, we keep the existing logic of using current date or just a placeholder,
+        // as the API only returns names.
+        // If the backend is updated to return objects with dates, we would adapt here.
         const data: ItemsResponse = await res.json();
 
         const enriched: ReportedItem[] = await Promise.all(
@@ -51,20 +54,32 @@ export default function LostAndFound() {
               );
               const imgData: ImagesResponse = await imgRes.json();
 
+              // Transform to full URLs for the UI
+              const imageUrls = (imgData.images ?? []).map(
+                (img) =>
+                  `${API}/items/${encodeURIComponent(name)}/image/${img}`,
+              );
+
               return {
                 id: name,
                 name,
-                images: imgData.images ?? [],
+                description: "No description provided", // Placeholder description
+                foundLocation: "B Block Auditorium",
+                currentLocation: "Admin Block Reception",
+                images: imageUrls,
                 dateReported: new Date().toISOString(),
-                foundLocation: "Campus Grounds",
-                currentLocation: "Main Office (Block A)",
+                type: "found",
               };
             } catch {
               return {
                 id: name,
                 name,
+                description: "Reported found on campus",
+                foundLocation: "Unknown Location",
+                currentLocation: "RV University",
                 images: [],
                 dateReported: new Date().toISOString(),
+                type: "found",
               };
             }
           }),
@@ -72,7 +87,7 @@ export default function LostAndFound() {
 
         setItems(enriched);
       } catch (e) {
-        console.error("Fetch error:", e);
+        console.error("Backend fetch failed", e);
         setItems([]);
       } finally {
         setLoading(false);
@@ -82,72 +97,49 @@ export default function LostAndFound() {
     load();
   }, []);
 
-  const sortedItems = useMemo(() => {
-    const sorted = [...items];
-    if (sortMode === "az") {
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    }
-    return sorted.sort(
-      (a, b) =>
-        new Date(b.dateReported).getTime() - new Date(a.dateReported).getTime(),
+  const sortedItems = [...items].sort((a, b) => {
+    if (sortBy === "name") return a.name.localeCompare(b.name);
+    // Sort by date (mock date will result in stable sort or random if all same, but maintaining logic)
+    return (
+      new Date(b.dateReported).getTime() - new Date(a.dateReported).getTime()
     );
-  }, [items, sortMode]);
+  });
 
   return (
-    <div className="min-h-screen px-4 py-10 bg-background text-foreground selection:bg-accent-yellow/30">
-      {/* LOADER */}
+    <div className="min-h-screen px-4 py-10 relative bg-background text-foreground">
       <AnimatePresence>
         {loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-md"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm"
           >
-            <Loader2
-              className="animate-spin mb-4 text-accent-yellow"
-              size={48}
-            />
-            <p className="text-sm font-medium tracking-widest uppercase opacity-70">
-              Synchronizing Database...
+            <Loader2 className="animate-spin mb-4 text-primary" size={48} />
+            <p className="text-sm font-medium tracking-wide">
+              Fetching Database...
             </p>
           </motion.div>
         )}
       </AnimatePresence>
 
       <div className="max-w-6xl mx-auto">
-        <header className="mb-10">
-          <h1 className="text-4xl font-bold tracking-tight">Lost & Found</h1>
-          <p className="text-secondary-text mt-2 text-lg">
-            Bridging the gap between lost belongings and their owners.
-          </p>
-        </header>
+        {/* HEADER */}
+        <h1 className="text-3xl font-semibold">Find Reported Items</h1>
+        <p className="mt-1 text-sm text-secondary-text">
+          Helping lost belongings find their way back safely
+        </p>
 
-        {/* FILTERS */}
-        <div className="flex items-center gap-3 mb-8">
-          <span className="text-xs font-bold uppercase tracking-wider text-secondary-text mr-2">
-            Sort By:
-          </span>
-          <button
-            onClick={() => setSortMode("date")}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-              sortMode === "date"
-                ? "bg-foreground text-background shadow-lg"
-                : "bg-card-bg border border-border-custom hover:bg-muted"
-            }`}
+        {/* SORT CONTROLS */}
+        <div className="mt-6 flex gap-3">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="rounded-lg px-4 py-2 text-sm outline-none bg-btn-bg border border-border-custom text-foreground"
           >
-            Recently Added
-          </button>
-          <button
-            onClick={() => setSortMode("az")}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
-              sortMode === "az"
-                ? "bg-foreground text-background shadow-lg"
-                : "bg-card-bg border border-border-custom hover:bg-muted"
-            }`}
-          >
-            Alphabetical
-          </button>
+            <option value="name">Name A–Z</option>
+            <option value="date">Date & Time</option>
+          </select>
         </div>
 
         {/* GRID */}
@@ -174,11 +166,9 @@ export default function LostAndFound() {
       </div>
 
       {/* MODAL */}
-      <AnimatePresence>
-        {activeItem && (
-          <ItemModal item={activeItem} onClose={() => setActiveItem(null)} />
-        )}
-      </AnimatePresence>
+      {activeItem && (
+        <ItemModal item={activeItem} onClose={() => setActiveItem(null)} />
+      )}
     </div>
   );
 }
@@ -191,50 +181,34 @@ function ItemCard({
   item: ReportedItem;
   onClick: () => void;
 }) {
-  const imgSrc =
-    item.images.length > 0
-      ? `${API}/items/${encodeURIComponent(item.name)}/image/${item.images[0]}`
-      : "/placeholder.png";
-
-  const prefetchImages = () => {
-    item.images.forEach((img) => {
-      const i = new window.Image();
-      i.src = `${API}/items/${encodeURIComponent(item.name)}/image/${img}`;
-    });
-  };
-
   return (
     <motion.button
       layout
       whileHover={{ y: -5 }}
       onClick={onClick}
-      onMouseEnter={prefetchImages}
-      className="group text-left w-full rounded-2xl overflow-hidden border border-border-custom bg-card-bg shadow-sm hover:shadow-xl transition-all"
+      className="text-left w-full rounded-xl overflow-hidden transition hover:scale-[1.02] bg-card-bg border border-border-custom"
     >
-      <div className="relative h-52 w-full overflow-hidden">
-        <Image
-          src={imgSrc}
-          alt={item.name}
-          fill
-          sizes="(max-width: 768px) 100vw, 33vw"
-          className="object-cover transition-transform duration-500 group-hover:scale-110"
-        />
-        <div className="absolute top-4 left-4">
-          <span className="px-3 py-1 rounded-full bg-accent-yellow text-black text-[10px] font-bold uppercase tracking-widest shadow-lg">
-            Found
+      <img
+        src={item.images[0]}
+        alt={item.name}
+        className="h-40 w-full object-cover"
+        onError={(e) => {
+          e.currentTarget.src =
+            "https://via.placeholder.com/400x300?text=No+Image";
+        }}
+      />
+
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium text-foreground">{item.name}</h3>
+          <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
+            FOUND
           </span>
         </div>
-      </div>
 
-      <div className="p-5">
-        <h3 className="text-xl font-semibold line-clamp-1 group-hover:text-accent-yellow transition-colors">
-          {item.name}
-        </h3>
-
-        <div className="mt-4 flex items-center text-[11px] text-secondary-text font-medium uppercase tracking-tighter">
-          <Calendar size={12} className="mr-1" />
-          {new Date(item.dateReported).toLocaleDateString()}
-        </div>
+        <p className="mt-2 text-sm line-clamp-2 text-secondary-text">
+          {item.description}
+        </p>
       </div>
     </motion.button>
   );
@@ -248,107 +222,133 @@ function ItemModal({
   item: ReportedItem;
   onClose: () => void;
 }) {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-card-bg rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-border-custom"
-      >
-        {/* GALLERY SECTION */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 bg-black/20">
-          {item.images.slice(0, 3).map((img, idx) => (
-            <div key={img} className="relative h-48 sm:h-64 w-full">
-              <Image
-                src={`${API}/items/${encodeURIComponent(item.name)}/image/${img}`}
-                alt={`${item.name} gallery ${idx}`}
-                fill
-                className="object-cover"
-                priority
-              />
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="relative w-full max-w-2xl bg-card-bg rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+        {/* HERO IMAGE & GALLERY */}
+        <div className="relative h-64 shrink-0 bg-zinc-900">
+          {item.images.length > 0 ? (
+            <div className="w-full h-full flex overflow-x-auto snap-x snap-mandatory">
+              {item.images.map((img, index) => (
+                <img
+                  key={index}
+                  src={img}
+                  className="w-full h-full object-contain shrink-0 snap-center"
+                />
+              ))}
             </div>
-          ))}
-          {item.images.length === 0 && (
-            <div className="col-span-3 h-64 flex items-center justify-center bg-muted/20">
-              <p className="text-secondary-text italic">
-                No images available for this item
-              </p>
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-secondary-text">
+              <X size={32} />
+              <span className="ml-2">No Images</span>
             </div>
           )}
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white backdrop-blur hover:bg-black/70 transition-colors"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        {/* CONTENT SECTION */}
-        <div className="p-8 sm:p-10">
-          <div className="flex justify-between items-start mb-6">
+        {/* CONTENT */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="flex items-start justify-between mb-4">
             <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span className="px-2 py-0.5 rounded-md bg-accent-yellow/10 text-accent-yellow text-[10px] font-bold uppercase tracking-widest border border-accent-yellow/20">
-                  Securely Stored
+              <h2 className="text-3xl font-bold text-foreground mb-1">
+                {item.name}
+              </h2>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-sm font-bold text-primary tracking-wide">
+                  VERIFIED FOUND
                 </span>
               </div>
-              <h2 className="text-3xl font-bold">{item.name}</h2>
             </div>
+          </div>
+
+          <p className="text-secondary-text leading-relaxed text-sm mb-8">
+            {item.description}
+          </p>
+
+          {/* DETAILS GRID */}
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-btn-bg/50 border border-border-custom flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <MapPin size={20} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-secondary-text block">
+                  Found At
+                </label>
+                <span className="text-foreground font-medium">
+                  {item.foundLocation || "Unknown"}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-btn-bg/50 border border-border-custom flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <MapPin size={20} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-secondary-text block">
+                  Currently At
+                </label>
+                <span className="text-foreground font-medium">
+                  {item.currentLocation || "Unknown"}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-btn-bg/50 border border-border-custom flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <Calendar size={20} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-bold text-secondary-text block">
+                  Reported Date
+                </label>
+                <span className="text-foreground font-medium">
+                  {new Date(item.dateReported).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8">
             <button
               onClick={onClose}
-              className="p-2 rounded-full hover:bg-muted transition-colors text-secondary-text hover:text-foreground"
+              className="w-full py-4 rounded-xl bg-primary text-white font-bold shadow-lg hover:brightness-110 active:scale-[0.98] transition-all"
             >
-              <X size={24} />
+              Contact Finder
             </button>
           </div>
-
-          <div className="h-px bg-border-custom w-full mb-8" />
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <InfoBlock
-              icon={<MapPin size={16} />}
-              label="Found At"
-              value={item.foundLocation}
-            />
-            <InfoBlock
-              icon={<Loader2 size={16} />}
-              label="Current Custody"
-              value={item.currentLocation}
-            />
-            <InfoBlock
-              icon={<Calendar size={16} />}
-              label="Reported Date"
-              value={new Date(item.dateReported).toLocaleDateString(undefined, {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            />
-          </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 
+/* ================= INFO BLOCK ================= */
 function InfoBlock({
   label,
   value,
-  icon,
 }: {
   label: string;
-  value?: string;
-  icon: React.ReactNode;
+  value: string | undefined;
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2 text-secondary-text uppercase text-[10px] font-bold tracking-widest">
-        {icon}
-        {label}
-      </div>
-      <p className="text-foreground font-semibold text-base">
-        {value || "Not specified"}
-      </p>
+    <div>
+      <p className="text-secondary-text mb-1 font-medium">{label}</p>
+      <p className="text-foreground font-medium">{value || "N/A"}</p>
     </div>
   );
 }
